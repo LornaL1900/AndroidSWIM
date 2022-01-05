@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">AndroidSWIM</string>
+    <string name="sin1000"><u>1000Hz</u></string>
 </resources>

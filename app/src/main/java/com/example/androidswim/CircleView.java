@@ -63,6 +63,19 @@ public class CircleView extends View
         int cy = pt + (usableHeight / 2);
 
         paint.setColor(circleColor);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setAlpha(255);
         canvas.drawCircle(cx, cy, radius, paint);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(10);
+        paint.setAlpha(150);
+        canvas.drawCircle(cx, cy, radius+5, paint);
+        paint.setAlpha(100);
+        canvas.drawCircle(cx, cy, radius+15, paint);
+        paint.setAlpha(50);
+        canvas.drawCircle(cx, cy, radius+25, paint);
+        paint.setAlpha(30);
+        canvas.drawCircle(cx, cy, radius+35, paint);
+
     }
 }

@@ -11,6 +11,9 @@ import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
@@ -55,6 +58,8 @@ public class ArgandAnimateActivity extends AppCompatActivity {
     short[] samples2;
     private Boolean interrupt = false;
     int count=0;
+    float avg3, avg4;
+    float xOffset, yOffset;
 
     final CyclicBarrier gate = new CyclicBarrier(4);
 
@@ -65,6 +70,26 @@ public class ArgandAnimateActivity extends AppCompatActivity {
         setContentView(R.layout.activity_single_dot_animate);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         Intent intent = getIntent();
+
+        findViewById(R.id.main).setOnTouchListener(new View.OnTouchListener() {
+            private GestureDetector gestureDetector = new GestureDetector(ArgandAnimateActivity.this, new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(MotionEvent e) {
+                    Log.d("www", "onDoubleTap");
+                    xOffset = avg3;
+                    yOffset = avg4;
+                    return super.onDoubleTap(e);
+                }
+            });
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                Log.d("www", "Raw event: " + event.getAction() + ", (" + event.getRawX() + ", " + event.getRawY() + ")");
+                gestureDetector.onTouchEvent(event);
+                return true;
+            }
+        });
+
         wts = (ArrayList<Integer>) intent.getSerializableExtra("wts");
         freqs =  (ArrayList<Integer>) intent.getSerializableExtra("freqs");
         phases =  (ArrayList<Double>) intent.getSerializableExtra("phases");
@@ -75,8 +100,10 @@ public class ArgandAnimateActivity extends AppCompatActivity {
         recBufferSize = AudioRecord.getMinBufferSize(reqFreq, MediaRecorder.AudioSource.MIC,
                 AudioFormat.ENCODING_PCM_16BIT);
 
-        recBufferSize = 4800;
-        writeBufferSize = 4800;
+        recBufferSize = 9600;
+        writeBufferSize = 9600;
+        xOffset = 0;
+        yOffset = 0;
 
         audioRecord1 = new AudioRecord(MediaRecorder.AudioSource.MIC, reqFreq,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
@@ -93,6 +120,9 @@ public class ArgandAnimateActivity extends AppCompatActivity {
 
         dot = (View)findViewById(R.id.CircleView);
 
+        dot.setY(0);
+        dot.setX(0);
+
         height = new Height();
         height.set(0);
 
@@ -102,25 +132,25 @@ public class ArgandAnimateActivity extends AppCompatActivity {
         medians = new float[1000];
         runs = 0;
 
-        height.setOnHeightChangeListener(new OnHeightChangeListener() {
-            @Override
-            public void onFloatChanged(float newValue) {
-                dot.setY(newValue);
-            } 
-        });
-
-        width.setOnWidthChangeListener(new OnWidthChangeListener() {
-            @Override
-            public void onFloattChanged(float newValue) {
-                dot.setX(newValue);
-            }
-        });
+//        height.setOnHeightChangeListener(new OnHeightChangeListener() {
+//            @Override
+//            public void onFloatChanged(float newValue) {
+//                dot.setY(newValue);
+//            }
+//        });
+//
+//        width.setOnWidthChangeListener(new OnWidthChangeListener() {
+//            @Override
+//            public void onFloattChanged(float newValue) {
+//                dot.setX(newValue);
+//            }
+//        });
 
         cos = new float[writeBufferSize];
         sin = new float[writeBufferSize];
         samples1 = new short[writeBufferSize];
         samples2 = new short[writeBufferSize];
-        int freq = 16000  ;
+        int freq = 16000;
         int i;
         for (i = 0; i < writeBufferSize; i++){
             cos[i] = (float)Math.sin(2*Math.PI*freq*i/reqFreq);
@@ -178,15 +208,17 @@ public class ArgandAnimateActivity extends AppCompatActivity {
                         total4 += buffer4[i];
                     }
 
-                    final float avg3 = total3/buffer1.length/12000;
-                    final float avg4 = total4/buffer1.length/12000;
+                    avg3 = total3/buffer1.length/12000;
+                    avg4 = total4/buffer1.length/12000;
                     count = count + 1;
 //                    if (count%2==0){
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                height.set((short)avg4);
-                                width.set_width((short)avg3);
+//                                height.set((short)avg4);
+//                                width.set_width((short)avg3);
+                                dot.setY(avg4-yOffset);
+                                dot.setX(avg3-xOffset);
                             }
                         });
 //                    }
@@ -252,6 +284,8 @@ public class ArgandAnimateActivity extends AppCompatActivity {
         audioRecord1.startRecording();
         audioTrack.play();
     }
+
+    
 
 
     @Override

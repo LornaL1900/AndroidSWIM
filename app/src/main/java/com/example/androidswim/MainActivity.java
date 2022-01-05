@@ -1,87 +1,104 @@
 package com.example.androidswim;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.constraintlayout.widget.ConstraintLayout;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-
-import java.util.ArrayList;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.widget.LinearLayout;
 
 public class MainActivity extends AppCompatActivity {
 
-    RecyclerView recyclerView;
-    MyAdapter myAdapter;
-    ArrayList<Integer> wts;
-    ArrayList<Integer> freqs;
-    ArrayList<Double> phases;
-    ArrayList<Double> amps;
-    ArrayList<String> wavestrings;
+    private static final int REQUEST_RECORD_AUDIO = 13;
+    ConstraintLayout note;
+    LinearLayout noteParent;
+    ConstraintLayout mannfun;
+    WebView webView;
 
     @SuppressLint("SourceLockedOrientationActivity")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        wts = new ArrayList<>();
-        freqs = new ArrayList<>();
-        phases = new ArrayList<>();
-        amps = new ArrayList<>();
-        wavestrings = new ArrayList<>();
-//        recyclerView = findViewById(R.id.recyclerView);
-////        myAdapter = new MyAdapter(this, wts, freqs, phases, amps);
-//        myAdapter = new MyAdapter(this, wavestrings);
-//        recyclerView.setAdapter(myAdapter);
-//        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        View decorView = getWindow().getDecorView();
+
+        int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN;
+
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        note = findViewById(R.id.constraint_layout);
+        mannfun = findViewById(R.id.mannfun_layout);
+        noteParent = findViewById(R.id.secondParent);
+
+        MannFun();
+
+        decorView.setSystemUiVisibility(uiOptions);
+        requestMicrophonePermission();
+
     }
 
-    public void startAddingHarmonic(View view){
-        Intent intent = new Intent(this, AddHarmonicActivity.class);
-//        intent.putIntegerArrayListExtra("wts", wts);
-//        intent.putIntegerArrayListExtra("freqs", freqs);
-//        intent.putExtra("phases", phases);
-//        intent.putExtra("amps", amps);
-        startActivityForResult(intent,1);
+    public void singleDotAnimation(View view) {
+//        Intent intent = new Intent(this, FreqSelectionActivity.class);
+        Intent intent = new Intent(this, CustomizeActivity.class);
+        intent.putExtra("mode", 1);
+        startActivity(intent);
     }
 
-    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        super.onActivityResult(requestCode, resultCode, intent);
-        // check that it is the SecondActivity with an OK result
-        if (requestCode == 1) {
-            if (resultCode == RESULT_OK) { // Activity.RESULT_OK
-                // get String data from Intent
-                int new_wt = intent.getIntExtra("new_wt", 0);
-                int new_freq = intent.getIntExtra("new_freq", 0);
-                double new_phase = intent.getDoubleExtra("new_phase", 0);
-                double new_amp = intent.getDoubleExtra("new_amp", 0);
-                String wavestring = intent.getStringExtra("new_ws");
-                wavestrings.add(wavestring);
-                wts.add(new_wt);
-                freqs.add(new_freq);
-                phases.add(new_phase);
-                amps.add(new_amp);
-                myAdapter.notifyItemInserted(wavestrings.size() - 1);
-            }
+    public void argandAnimation(View view) {
+//        Intent intent = new Intent(this, FreqSelectionActivity.class);
+        Intent intent = new Intent(this, CustomizeActivity.class);
+        intent.putExtra("mode", 2);
+        startActivity(intent);
+    }
+
+    public void twoDotsAnimation(View view) {
+//        Intent intent = new Intent(this, FreqSelectionActivity.class);
+        Intent intent = new Intent(this, CustomizeActivity.class);
+        intent.putExtra("mode", 3);
+        startActivity(intent);
+    }
+
+    private void requestMicrophonePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(
+                    new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO);
         }
     }
 
-    public void startAnimating(View view) {
-        Intent intent = new Intent (this, SingleDotAnimateActivity.class);
-        intent.putIntegerArrayListExtra("wts", wts);
-        intent.putIntegerArrayListExtra("freqs", freqs);
-        intent.putExtra("phases", phases);
-        intent.putExtra("amps", amps);
-        startActivity(intent);
+    public void removeNote(View view) {
+        noteParent.removeView(note);
     }
 
-    public void animateOptions(View view) {
-        Intent intent = new Intent  (this, AnimateOptionActivity.class);
-//        Intent intent = new Intent  (this, SingleDotAnimateActivity.class);
-        startActivity(intent);
+    public void removeMannfun(View view) {
+        webView.loadUrl("");
+        noteParent.removeView(mannfun);
+    }
+
+    public void openPaper(View view) {
+        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://wearcam.org/PhenomenalAugmentedReality/"));
+        startActivity(browserIntent);
+    }
+
+    public void openWearCam(View view) {
+        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://wearcam.org/swim"));
+        startActivity(browserIntent);
+    }
+
+    public void MannFun() {
+        webView=findViewById(R.id.webview);
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setUseWideViewPort(true);
+        webView.setWebChromeClient(new WebChromeClient());
+        webView.loadUrl("file:///android_asset/mannfun.htm");
     }
 }

@@ -25,21 +25,28 @@ import android.widget.Toast;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-
-public class TwoDotsAnimateActivity extends AppCompatActivity {
+public class OneDotAnimateActivity extends AppCompatActivity {
     MediaRecorder mediaRecorder;
     AudioRecord audioRecord;
     AudioTrack audioTrack;
+
     int sample_rate = 48000;
+    int sleep_time;
     int buffer_size;
 
     short[] samples;
     short[] samples_img;
 
     short[] rec_buffer;
-    short[] rec_cp;
     short[] play_buffer;
     short[] play_cp;
+
+
+    float period;
+    float time_inc;
+    float freqf;
+    float curr_time;
+
 
     float avg_real, avg_img;
     float total_real, total_img;
@@ -48,14 +55,8 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
     int mode;
     int freq;
     int multiple;
-    int sleep_time;
-    float freqf;
 
-    float period;
-    float time_inc;
-    float curr_time;
-
-    View dot_g, dot_r;
+    View dot_g;
 
     float xOffset, yOffset;
 
@@ -68,7 +69,7 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_two_dots_animate);
+        setContentView(R.layout.activity_one_dot_animate);
 
         // Make full screen
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -78,34 +79,28 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
                 | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-
         decorView.setSystemUiVisibility(uiOptions);
 
-        dot_g = findViewById(R.id.dot_g);
-        dot_r = findViewById(R.id.dot_r);
+
+        dot_g = findViewById(R.id.dot);
 
         dot_g.setX(0);
         dot_g.setY(0);
 
-        dot_r.setX(0);
-        dot_r.setY(0);
-        ((CircleView) dot_r).setCircleColor(Color.RED);
 
-
-        findViewById(R.id.constraint_layout).setOnTouchListener(new View.OnTouchListener() {
-            private GestureDetector gestureDetector = new GestureDetector(TwoDotsAnimateActivity.this, new GestureDetector.SimpleOnGestureListener() {
+        findViewById(R.id.linear_layout).setOnTouchListener(new View.OnTouchListener() {
+            private GestureDetector gestureDetector = new GestureDetector(OneDotAnimateActivity.this, new GestureDetector.SimpleOnGestureListener() {
                 @Override
                 public boolean onDoubleTap(MotionEvent e) {
-                    Log.d("www", "onDoubleTap");
-                    xOffset = avg_img;
-                    yOffset = avg_real;
+
+                    xOffset = avg_real;
+                    yOffset = avg_img;
                     return super.onDoubleTap(e);
                 }
             });
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                Log.d("www", "Raw event: " + event.getAction() + ", (" + event.getRawX() + ", " + event.getRawY() + ")");
                 gestureDetector.onTouchEvent(event);
                 return true;
             }
@@ -116,6 +111,7 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
                 "3. It's recommended to move the phone straight and slow.";
 
         Toast.makeText(getApplicationContext(),tips,Toast.LENGTH_SHORT).show();
+
         // get extras
         Intent intent = getIntent();
         mode = intent.getIntExtra("mode", 0);
@@ -128,31 +124,46 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
         time_inc = 1/(float) sample_rate;
         curr_time = 0;
 
-        square = intent.getBooleanExtra("square", false);
-        freq = intent.getIntExtra("freq", 1000);
-        multiple = intent.getIntExtra("multiple", 100);
-        freqf = (float) freq;
+        Log.d("www", "here");
 
+//        if (freq < 5000) {
+//            buffer_size = 960;
+//            sleep_time = 15;
+//        }
+//        else {
+//            buffer_size = 240;
+//            sleep_time = 5;
+//        }
         buffer_size = (int) (period * sample_rate * multiple);
 
         if(buffer_size > 9600) buffer_size = 9600;
+        Log.d("www", String.valueOf(buffer_size)+","+ String.valueOf(period));
+
+
+//        buffer_size = (int) Math.ceil (sample_rate/freqf*multiple);
+//        buffer_size -= buffer_size % 2;
+        sleep_time = (int)(((float) buffer_size)/sample_rate*1000);
+
+        Log.d("www", String.valueOf(freq) +"," + String.valueOf(buffer_size) +"," + String.valueOf(sleep_time) +"," + String.valueOf(multiple));
+
+        if (sleep_time > 20) sleep_time =20;
+        if (sleep_time < 5) sleep_time = 5;
 
         samples = new short[buffer_size];
         samples_img = new short[buffer_size];
+
         rec_buffer = new short[buffer_size];
         play_buffer = new short[buffer_size];
         play_cp = new short[buffer_size];
 
-        Log.d("www", "mode" +mode + "square" +square + "freq" +freq) ;
+
+
         xOffset = 0;
         yOffset = 0;
         avg_real = 0;
         avg_img = 0;
 
-//        dot_g = new CircleView(this);
-//        linearLayout.addView(dot_g);
-//        dot_g.setX(0);
-//        dot_g.setY(0);
+
         mediaRecorder = new MediaRecorder();
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sample_rate,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
@@ -183,6 +194,7 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
         }
 
 //        thread_play = new Thread(new Runnable() {
+//            @RequiresApi(api = Build.VERSION_CODES.M)
 //            @Override
 //            public void run() {
 //                try {
@@ -190,12 +202,21 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
 //                } catch (BrokenBarrierException | InterruptedException e) {
 //                    e.printStackTrace();
 //                }
+//                short[] temp_buffer = new short[buffer_size];
+//                curr_time = 0;
 //                while(!interrupted){
-//                    audioTrack.write(samples, 0, buffer_size);
+//                    int i;
+//                    for (i = 0; i < buffer_size; i++) {
+//                        play_buffer[i] = (short) (Math.sin(2 * Math.PI * freq * curr_time) * 10000);
+//                        curr_time += time_inc;
+//                        if (curr_time > period) {curr_time -= period;}
+//                    }
+//                    play_cp = play_buffer.clone();
+//                    audioTrack.write(play_cp, 0, buffer_size, AudioTrack.WRITE_BLOCKING);
 //                }
 //            }
 //        });
-//
+
 //        thread_rec = new Thread(new Runnable() {
 //            @Override
 //            public void run() {
@@ -241,18 +262,30 @@ public class TwoDotsAnimateActivity extends AppCompatActivity {
                     play_cp = play_buffer.clone();
                     audioTrack.write(play_cp, 0, buffer_size, AudioTrack.WRITE_BLOCKING);
                     audioRecord.read(rec_buffer, 0, buffer_size, AudioRecord.READ_BLOCKING);
-                    avg_real = total_real/buffer_size/12000;
-                    avg_img = total_img/buffer_size/12000;
-
-                    runOnUiThread(new Runnable() {
+                    if (mode == 1) {
+//                        for (i = 0; i < buffer_size; i++) {
+//                            total_real += (float) rec_buffer[i] *(float) samples[i];
+//                        }
+                        avg_real = total_real/buffer_size/12000;
+                        runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                dot_g.setY(avg_img-xOffset);
-                                dot_r.setY(avg_real-yOffset); }
+                                dot_g.setY(avg_real-xOffset);
+                            }
                         });
+                    }
+                    else {
+                        avg_real = total_real/buffer_size/12000;
+                        avg_img = total_img/buffer_size/12000;
 
-//
-//
+                        runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    dot_g.setX(avg_real-xOffset);
+                                    dot_g.setY(avg_img-yOffset); }
+                            });
+
+                    }
 //                    try {
 //                        Thread.sleep(sleep_time);
 //                    } catch (InterruptedException e) {

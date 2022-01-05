@@ -4,27 +4,35 @@
     package="com.example.androidswim">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
+        android:hardwareAccelerated="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:largeHeap="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".CustomizeActivity"></activity>
+        <activity android:name=".FreqSelectNew" />
         <activity
-            android:name="com.example.androidswim.TwoDotsAnimateActivity"
+            android:name=".TwoDotsAnimateActivity"
             android:screenOrientation="landscape"
             tools:ignore="LockedOrientationActivity" />
-        <activity android:name="com.example.androidswim.ArgandAnimateActivity" android:screenOrientation="landscape"
+        <activity
+            android:name=".OneDotAnimateActivity"
+            android:screenOrientation="landscape"
             tools:ignore="LockedOrientationActivity" />
-<!--        <activity android:name="com.example.androidswim.AnimateOptionActivity" android:screenOrientation="landscape"-->
-<!--            tools:ignore="LockedOrientationActivity"/>-->
-        <activity android:name="com.example.androidswim.SingleDotAnimateActivity" android:screenOrientation="landscape"
-            tools:ignore="LockedOrientationActivity"/>
-        <activity android:name="com.example.androidswim.AddHarmonicActivity" />
-        <activity android:name="com.example.androidswim.HarmonicsListActivity" />
-        <activity android:name="com.example.androidswim.AnimateOptionActivity">
+        <activity
+            android:name=".FreqSelectionActivity"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity" />
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
