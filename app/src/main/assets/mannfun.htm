@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<!-- I (Steve) implemented my "Truthful Sines" idea with Cayden based on code we found from Pierre Guilleminot’s Blocks at bl.ocks.org/jinroh which Cayden and I modified for this purpose; jd and I are adding sound.  See http://wearcam.org/kineveillance.pdf regarding the "truthful sines" concept... -->
+<head>
+<meta charset="utf-8">
+
+<!-- Setting styling (colour, line thickness, etc) -->
+<style>
+body {
+  font: 13px/13px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  position: relative;
+  width: 960px;
+}
+form {
+  text-align: center;
+}
+.hide {
+  display: none;
+}
+.coeff .dot {
+  fill: hsla(207, 63%, 27%, 0.2);
+}
+.coeff.last .dot {
+  fill: hsla(207, 63%, 27%, 1.0);
+}
+.coeff .circle {
+  fill: none;
+  stroke: hsl(0, 0%, 70%);
+}
+.coeff.first .circle {
+  fill: none;
+  stroke: hsl(0, 0%, 30%);
+}
+.coeff.last .circle {
+  display: none;
+}
+.graphreal {
+  fill: none;
+  stroke: red;
+  stroke-width: 5px;
+}
+.graphimag {
+  fill: none;
+  stroke: green;
+  stroke-width: 5px;
+}
+.trace {
+  fill: none;
+  stroke: steelblue;
+}
+.proj {
+  fill: none;
+  stroke: #000;
+}
+.axis {
+  stroke: hsl(0, 0%, 70%);
+}
+
+.vector {
+  stroke: hsl(0, 0%, 0%);
+}
+</style>
+</head>
+<body>
+
+  <!-- Creating drop-down menus, checkbox, buttons, speed adjustment -->
+<form onSubmit="return false; // Returning false stops the page from reloading">
+  <p>
+    <select id="type_real_complex" style="font-size:40px;">
+      <option value="complex">Complex</option>
+      <option value="complex2">Complex2</option>
+      <option value="real">Real</option>
+    </select>
+    <select id="type_mann_hilbert" style="font-size:40px;">
+      <option value="mann">Mann</option>
+      <option value="hilbert">Hilbert</option>
+    </select>
+    <select id="type" style="font-size:40px;">
+      <option value="square">Square</option>
+      <option value="triangle">Triangle</option>
+      <option value="sawtooth">Sawtooth</option>
+      <option value="pulse">Pulse</option>
+    </select>
+    <input id="size" type="number" value="12" min="1" max="4000" step="1" style="font-size:40px;">
+    <input id="mute" type="checkbox" style="font-size:40px;"><label for="mute" style="font-size:40px;">Mute</label>
+  </p>
+  <p>
+<br><br><input id="freq" type="range" value="0.5" min="0.0" max="1" step="0.01" style="font-size:40px;"> <label style="font-size:40px;">Speed</label></p>
+</form>
+<!-- Including D3.js library -->
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script>
+(function() {
+  "use strict";
+
+  // Declaring constants
+  var π = Math.PI
+  var τ = 2 * Math.PI
+
+  // Stores Fourier multipliers for sound output, needs to be initialized with a first element of 0 as the DC offset term is 0
+  // Other multipliers will then be appended
+  var MannFunArray = [0];
+
+  // Setting initial option values
+  var mann_hilbert = "mann";
+  var real_complex = "complex";
+
+
+  // Fourier multipliers for each type are pushed into MannFunArray and returned to serve as circle radii and Hilbert transform term multipliers
+  var types = {
+    square: function(n) {
+      MannFunArray.push((((n+1) % 2) ? 0 : 1) / n);
+      return (((n + 1) % 2) ? 0 : 1) / n;
+    },
+    triangle: function(n) {
+      if (!(n % 2)) {
+        return 0;
+        
+      }
+      MannFunArray.push((((n-1) % 4 === 1) ? 1 : -1) / (n * n));
+      return ((n % 4 === 1) ? 1 : -1) / (n * n);
+    },
+    sawtooth: function(n) {
+      MannFunArray.push(((n % 2) ? -1 : 1) / (n + 1));
+      return ((n % 2) ? -1 : 1) / (n + 1);
+    },
+    fibonacci: function(n) {
+      var fst = 0.01, sec = 0.01, add;
+      for (var i = 0; i < n; i++) {
+        add = fst + sec;
+        fst = sec;
+        sec = add;
+      }
+      return add;
+    },
+    pulse: function(n) {
+      MannFunArray.push(0.1);
+      return 0.1;
+    }
+  };
+
+  // Define real and imaginary components of the Hilbert transform option
+  function FThilbertr(A, N, φ) {
+    φ = φ || 0;
+    return function(x) {
+      var n = -1, y = 0;
+      while (++n < N) {
+    y += A[n] * Math.sin(τ * (n + 1) * x + φ);
+
+      }
+      return y;
+    }
+  }
+
+
+  function FThilberti(A, N, φ, C) {
+    φ = φ || 0;
+    return function(x) {
+      var n = -1, y = 0;
+      while (++n < N) {
+    y += A[n] * Math.sin(τ * (n + 1) * x + φ);
+
+      }
+      return y;
+    }
+  }
+
+  // Define real and imaginary components of the Mann transform option
+  function FTmannr(A, N, φ, C) {
+    φ = φ || 0;
+    return function(x) {
+      var n = -1, y = 0;
+      if(C == types.square) {
+          while (++n < N) {
+                var harmonic = n+1;
+                if (harmonic%2==0){
+                    continue;
+                }
+                y += ((-1)**((harmonic-1)/2)/harmonic) * Math.cos(τ * harmonic * x);
+          }
+      } else if (C == types.triangle) {
+            while (++n < N) {
+                  var harmonic = n+1;
+                  if (harmonic%2==0){
+                      continue;
+                  }
+                  y += 0.5 * ((1-(-1)**harmonic)/(harmonic**2)) * Math.cos(τ * harmonic * x);
+            }
+      } else if (C == types.sawtooth) {
+          while (++n < N) {
+                var harmonic = n+1;
+                y += -1 * (((-1)**harmonic)/(harmonic+1)) * Math.sin(τ * harmonic * x);
+          }
+      } else if (C == types.pulse) {
+            while (++n < N) {
+                  var harmonic = n+1;
+                  y += -0.1 * Math.sin(τ * harmonic * x);
+            }
+      }
+                            
+      return y;
+    }
+  }
+
+  function FTmanni(A, N, φ, C) {
+    φ = φ || 0;
+    return function(x) {
+      var n = -1, y = 0;
+      if(C == types.square) {
+          while (++n < N) {
+                var harmonic = n+1;
+                if (harmonic%2==0){
+                    continue;
+                }
+                y += ((-1)**((harmonic-1)/2)/harmonic) * Math.sin(harmonic*((τ * x) - (τ/4)) + (τ/4));
+          }
+      } else if (C == types.triangle) {
+            while (++n < N) {
+                  var harmonic = n+1;
+                  if (harmonic%2==0){
+                      continue;
+                  }
+                  y += 0.5 * ((1-(-1)**harmonic)/(harmonic**2)) * Math.sin(harmonic*((τ * x) - (τ/4)) + (τ/4));
+            }
+      } else if (C == types.sawtooth) {
+          while (++n < N) {
+                var harmonic = n+1;
+                y += -1 * (((-1)**harmonic)/(harmonic+1)) * Math.cos(harmonic*((τ * x) - (τ/4)) + (τ/4));
+          }
+      } else if (C == types.pulse) {
+            while (++n < N) {
+                  var harmonic = n+1;
+                  y += -0.1 * Math.cos(harmonic*((τ * x) - (τ/4)) + (τ/4));
+            }
+        }
+
+      return y;
+    }
+  }
+
+
+  var
+    // Setting position parameters
+    margin = {top: 0, right: 0, bottom: 0, left: 200},
+    W = 960, // width that approximates isotropic axes
+    H = 960, // height that approximates isotropic axes
+    w = W - margin.left - margin.right,
+    h = H - margin.top - margin.bottom,
+
+    // Settting dimensional parameters
+    radius = 140,
+    theta  = 0,
+    xmax   = 3.0,
+    ymax   = 3, //(xmax * (W/h)),
+    rate   = 1 / 60,
+
+    // Setting initial option values
+    mann_hilbert = "mann",
+    real_complex = "complex",
+    C = types.square,  // coefficients
+    L = 11,            // size
+    F = 0.5,       // speed frequency
+
+    // Setting domains
+    tDomain = d3.range(0, 1.1, 1 / 1000),   // trace domain
+    grDomain = d3.range(0, xmax, xmax / 1000), // real graph domain
+    giDomain = d3.range(0, ymax, ymax / 1000), // imag graph domain
+
+    // Creating axes arrays on which functions will be plotted
+    yCirc = d3.scale.linear().domain([-1, 1]).range([h/3 + radius, h/3 - radius]), // must be the same as center of y-axis
+    xCirc = d3.scale.linear().domain([-1, 1]).range([0, 2 * radius]),
+    rAxis = d3.scale.linear().domain([0, 1]).range([0, radius]),
+    xAxis = d3.scale.linear().range([radius, W - margin.left]),
+    yAxis = d3.scale.linear().domain([0, ymax]).range([h/3, H - margin.bottom]), // y-axis 1/3 of the way up height
+
+    Fxy, fx, fy,
+    timer, data = [];
+
+  // Set D3.js lines coordinates
+  var graphreal = d3.svg.line()
+    .x(function(d) { return xAxis(d); })
+    .y(function(d) { return yCirc(fy(theta - d)); });
+
+  var graphimag = d3.svg.line()
+    .x(function(d) { return xCirc(fx(theta - d)); })
+    .y(function(d) { return yAxis(d); });
+
+  var graphimag2 = d3.svg.line()
+    .x(function(d) { return xAxis(d); })
+    .y(function(d) { return yCirc(fx(theta - d)); });
+
+  var proj = d3.svg.line()
+    .x(function(d) { return xCirc(d.x); })
+    .y(function(d) { return yCirc(d.y); });
+
+  var trace = d3.svg.line()
+    .x(function(d) { return xCirc(fx(d)); })
+    .y(function(d) { return yCirc(fy(d)); });
+
+
+  // Translate circles to their position
+  function gTransform(d) {
+    return "translate(" + xCirc(d.x) + "," + yCirc(d.y) + ")";
+  }
+
+  // Set D3 parameters (body width, body height, line position), and append the lines into the svg
+  var svg = d3.select("body")
+    .append("svg")
+      .attr("width", W)
+      .attr("height", H)
+
+  svg.append("line")
+    .attr("class", "axis")
+    .attr("y1", margin.top + yCirc(0)).attr("x1", 0)
+    .attr("y2", margin.top + yCirc(0)).attr("x2", W);
+
+  svg.append("line")
+    .attr("class", "axis")
+    .attr("x1", margin.left + xCirc(0)).attr("y1", 0)
+    .attr("x2", margin.left + xCirc(0)).attr("y2", H);
+
+  // Translate the svg to respect margins
+  var vis = svg.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Create paths, add classes to components in svg
+  var grPath = vis.append("path").attr("class", "graphreal");
+  var giPath = vis.append("path").attr("class", "graphimag");
+  var tPath = vis.append("path").attr("class", "trace");
+  var prPath = vis.append("path").attr("class", "proj");
+  var piPath = vis.append("path").attr("class", "proj");
+
+  function cache() {
+    MannFunArray = [0];
+
+    // A holds Fourier multipliers
+    var A = d3.range(1, L + 1).map(C);
+
+    // Set imaginary and real graphs
+    if (mann_hilbert == "mann"){
+        fx = FTmannr(A, L - 1, π/2, C);
+        fy = FTmanni(A, L - 1, 0, C);
+    } else {
+        fx = FThilbertr(A, L - 1, π/2);
+        fy = FThilberti(A, L - 1, 0);
+    }
+
+    // Set circle positions and radii
+    Fxy = A.map(function(a, i) {
+      if (mann_hilbert == "mann"){
+        return { X: FTmannr(A, i, π/2, C), Y: FTmanni(A, i, 0, C), r: Math.abs(a) };
+  } else {
+        return { X: FThilbertr(A, i, π/2), Y: FThilberti(A, i, 0), r: Math.abs(a) };
+  }
+    });
+  }
+
+  //Set data array
+  function calc() {
+    if (!Fxy) cache();
+    Fxy.forEach(function(f, i) {
+      var d = data[i] || (data[i] = {x:0,y:0,r:0});
+      d.x = f.X(theta);
+      d.y = f.Y(theta);
+      d.r = f.r;
+      d.f = i + 1;
+    });
+    data.length = Fxy.length;
+    return data;
+  }
+
+  // Generate circles - representation of coefficients in harmonic series
+  function coeff() {
+    var co = vis.selectAll(".coeff").data(calc());
+    co.exit().remove();
+    var en = co.enter().append("g").attr("class", "coeff");
+
+    // Adding each circle and dot
+    en.append("circle").attr("class", "circle");
+    en.append("circle").attr("class", "dot").attr("r", 3);
+
+    // Update
+    co.classed("last",  function(d, i) { return i === L - 1; });
+    co.classed("first", function(d, i) { return i === 0; });
+    
+    // Set each radius
+    co.select(".circle").attr("r", function(d, i) { return rAxis(d.r); })
+
+    return co;
+  }
+
+  // Draw using D3.js
+  function drawGraph() {
+    xAxis.domain([0, xmax]);
+    coeff().attr("transform", gTransform);
+    var last = data[data.length - 1];
+    prPath.attr("d", proj([last, {x:0,y:last.y}]));
+    grPath.attr("d", graphreal(grDomain));
+    if (real_complex == "complex"){
+        piPath.classed("hide", false);
+        giPath.classed("hide", false);
+        giPath.attr("d", graphimag(giDomain));
+    } else if (real_complex == "complex2") {
+        piPath.classed("hide", false);
+        giPath.classed("hide", false);
+        giPath.attr("d", graphimag2(giDomain));
+    } else {
+        piPath.classed("hide", true);
+        giPath.classed("hide", true);
+    }
+    piPath.attr("d", proj([last, {x:last.x,y:0}]));
+    tPath.attr("d", trace(tDomain));
+  }
+
+  // Execute
+  function play() {
+    if (timer) return;
+    (function loop() {
+      drawGraph();
+      theta += F * rate;
+      timer = setTimeout(loop, rate * 1000);
+    })();
+    audio_output(MannFunArray);
+    console.log(MannFunArray);
+    MannFunArray=[0]; 
+  }
+
+  // Redraw graph (used when an option is changed)
+  function redraw() {
+    cache(); drawGraph();
+  }
+
+  // Initializing audio variables (using WebAudio API)
+  var audioContext = new AudioContext();
+  var merger = audioContext.createChannelMerger(2);
+  var osc = audioContext.createOscillator(); // Real component
+  var osc2 = audioContext.createOscillator(); // Complex component
+  var volume = audioContext.createGain();
+  var phaseDelay = audioContext.createDelay();
+
+  // Mute/Unmute by setting volume node gain value
+  var playSound = true;
+  function setMute() {
+    playSound = !playSound;
+    if(playSound == false) {
+      volume.gain.value = 0;
+    } else {
+      volume.gain.value = 1;
+    }
+  }
+
+  var calledOnce = false; // Used to ensure osc and osc2 are only started once
+  function audio_output(MannFunArray) {
+    MannFunArray.pop(); // The next harmonic's multiplier is included in MannFunArray and must be removed
+    var MannFunArrayComplex = MannFunArray; // Setting complex sound multipliers
+
+    if (osc != null && osc2 != null){
+
+      // Convert MannFunArray and MannFunArrayComplex to arrays of integers
+      var real = new Float32Array(MannFunArray);
+      var complex = new Float32Array(MannFunArrayComplex);
+
+      // If length of real or complex is 1, we only have a DC offset, hence an error occurs, so instead of attempting to play sound, we set the volume to 0 and proceed
+      if(real.length < 2 || complex.length <2) {
+        volume.gain.value = 0;
+        return;
+      }
+      // Creates array of float 0's of the same length as real and complex, used in createPeriodicWave to have only cos or only sin terms
+      var imag = new Float32Array(real.length);
+      var imag2 = new Float32Array(complex.length);
+      
+      var hornTable, hornTable2;
+
+      if(mann_hilbert == "mann") {
+        console.log("Playing mann sound");
+        hornTable = audioContext.createPeriodicWave(imag, real); // Holds Fourier series of sine terms
+        hornTable2 = hornTable;
+        phaseDelay.delayTime.value = (1/440)*(3/4); // Phase shift of 3/4 period
+      } else {
+        hornTable = audioContext.createPeriodicWave(real, imag); // Fourier series of cos terms
+        hornTable2 = audioContext.createPeriodicWave(imag2, complex); // Fourier series of sin terms
+        phaseDelay.delayTime.value = 0; // No phase shift
+      }
+
+      // Setting the oscillators
+      osc.setPeriodicWave(hornTable);
+      osc.frequency.value = 440;
+      osc2.setPeriodicWave(hornTable2);
+      osc2.frequency.value = 440;
+      osc2.connect(phaseDelay);
+
+      /// Set left and right channels
+      osc.connect(merger,0,0);
+      phaseDelay.connect(merger,0,1);
+
+      volume.connect(audioContext.destination);
+
+      // Necessary for mute to work when changing an option and thus redrawing
+      if(playSound == 1) {
+        volume.gain.value = 1;
+      } else {
+        volume.gain.value = 0;
+      }
+      merger.connect(volume);
+
+      // Start osc and osc 2 the first time the page is loaded
+      if(calledOnce == false) {
+        osc.start(0);
+        osc2.start(0);
+        calledOnce = true;
+      }
+    }
+  }
+
+  // Redraw and/or change audio when user changes options
+  d3.select("#freq").on("change", function() { F = +this.value; redraw(); });
+  d3.select("#size").on("change", function() { L = +this.value; redraw();
+	  audio_output(MannFunArray);
+	  MannFunArray=[0]; 
+  });
+  d3.select("#type").on("change", function() { C = types[this.value]; redraw();
+    audio_output(MannFunArray);
+	  MannFunArray=[0];
+  });
+  d3.select("#type_real_complex").on("change", function() { real_complex = this.value; redraw(); });
+  d3.select("#type_mann_hilbert").on("change", function() { mann_hilbert = this.value; redraw(); 
+    audio_output(MannFunArray);
+	  MannFunArray=[0];});
+  d3.select("#mute").on("change", function() { redraw(); setMute();});
+  play();
+})();
+</script>
+
+</body>
+
